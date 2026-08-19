@@ -140,6 +140,9 @@ label{font-size:12px;font-weight:800}
     </select>
     <label style="display:block;margin-top:15px">Patient name</label>
     <input id="patientName" class="input" placeholder="Enter patient name" autocomplete="name">
+    <label style="display:block;margin-top:15px">Mobile number</label>
+    <input id="patientMobile" class="input" placeholder="10-digit mobile number" inputmode="numeric" maxlength="10" autocomplete="tel">
+    <p class="small" style="margin-top:8px">One active token is allowed per mobile number and device.</p>
     <button class="btn btn-primary" style="margin-top:16px" onclick="requestToken()">Request Token</button>
     <p id="tokenMessage" class="small center" style="margin-top:12px"></p>
   </div>
@@ -195,13 +198,22 @@ label{font-size:12px;font-weight:800}
 </div>
 
 <script>
+const API_BASE = 'https://doc-care-backend.onrender.com';
+
 const state = {
   patientName: localStorage.getItem('gh_patient_name') || '',
   token: localStorage.getItem('gh_token') || '',
+  mobile: localStorage.getItem('gh_mobile') || '',
+  deviceId: localStorage.getItem('gh_device_id') || '',
   department: localStorage.getItem('gh_department') || 'General OPD'
 };
 
-const API_BASE = 'https://doc-care-backend.onrender.com';
+if(!state.deviceId){
+  state.deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+  localStorage.setItem('gh_device_id', state.deviceId);
+}
+
+document.getElementById('patientMobile').value = state.mobile;
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -228,17 +240,20 @@ function saveProfile(){
 
 async function requestToken(){
   const name=document.getElementById('patientName').value.trim();
+  const mobile=document.getElementById('patientMobile').value.replace(/\D/g,'').slice(-10);
   const dept=document.getElementById('department').value;
   const msg=document.getElementById('tokenMessage');
   if(!name){ msg.textContent='Please enter the patient name.'; return; }
+  if(!/^\d{10}$/.test(mobile)){ msg.textContent='Please enter a valid 10-digit mobile number.'; return; }
   msg.textContent='Requesting a real hospital token...';
   try{
-    const r=await fetch(`${API_BASE}/api/tokens`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department:dept})});
+    const r=await fetch(`${API_BASE}/api/tokens`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mobile,deviceId:state.deviceId,department:dept})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Token request failed');
-    state.patientName=name; state.department=dept; state.token=data.patient.token;
+    state.patientName=name; state.mobile=mobile; state.department=dept; state.token=data.patient.token;
     localStorage.setItem('gh_patient_name',name);
     localStorage.setItem('gh_department',dept);
+    localStorage.setItem('gh_mobile',mobile);
     localStorage.setItem('gh_token',state.token);
     document.getElementById('greeting').textContent=`Hello, ${name}`;
     msg.textContent=`Token issued successfully: ${state.token}`;
