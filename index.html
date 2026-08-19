@@ -201,6 +201,8 @@ const state = {
   department: localStorage.getItem('gh_department') || 'General OPD'
 };
 
+const API_BASE = 'https://doc-care-backend.onrender.com';
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -231,7 +233,7 @@ async function requestToken(){
   if(!name){ msg.textContent='Please enter the patient name.'; return; }
   msg.textContent='Requesting a real hospital token...';
   try{
-    const r=await fetch('/api/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department:dept})});
+    const r=await fetch(`${API_BASE}/api/tokens`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department:dept})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Token request failed');
     state.patientName=name; state.department=dept; state.token=data.patient.token;
@@ -246,7 +248,7 @@ async function requestToken(){
 }
 
 async function getQueue(){
-  const r=await fetch('/api/queue?department='+encodeURIComponent(state.department));
+  const r=await fetch(`${API_BASE}/api/queue?department=${encodeURIComponent(state.department)}`);
   const data=await r.json();
   if(!r.ok) throw new Error(data.error||'Queue unavailable');
   return data;
