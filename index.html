@@ -164,7 +164,7 @@ label{font-size:12px;font-weight:800}
     <button class="btn btn-primary" style="margin-top:16px" onclick="requestToken()">Request Token</button>
     <p id="tokenMessage" class="small center" style="margin-top:12px"></p>
   </div>
-  <div class="notice">After your token is issued, this phone is automatically registered for your token's alerts. When the doctor calls your token, only this phone receives the alert. Please allow notifications and keep this page open if you want the 3-time voice announcement.</div>
+  <div class="notice">After your token is issued, this phone is registered for alerts. Please allow notifications. For voice alerts, tap Enable Voice Alerts once and keep this page open when the doctor calls your token.</div>
 </section>
 
 <section id="mytoken" class="screen">
@@ -175,6 +175,8 @@ label{font-size:12px;font-weight:800}
     <div class="progress"><span id="progressBar"></span></div>
     <div id="myTokenStatus" style="font-weight:800">Waiting for token</div>
     <p class="small" id="myTokenHint" style="margin-top:8px">Your live status will appear here.</p>
+    <button id="voiceBtn" class="btn btn-light" style="margin-top:12px" onclick="enableVoiceAlerts()">🔊 Enable Voice Alerts</button>
+    <p id="voiceStatus" class="small center" style="margin-top:8px"></p>
   </div>
   <button class="btn btn-light" onclick="showScreen('queue')">Open Live Queue</button>
 </section>
@@ -233,7 +235,7 @@ async function registerPushServiceWorker(){
     navigator.serviceWorker.addEventListener('message', event=>{
       const data = event.data || {};
       if(data.type === 'TOKEN_CALLED' && data.token === state.token){
-        notifyTokenCalled(data.token, data.message || 'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
+        notifyTokenCalled(data.token, data.voiceText || data.message, data.callId || '');
       }
     });
     return pushRegistration;
@@ -276,26 +278,78 @@ function urlBase64ToUint8Array(base64String){
   return Uint8Array.from([...rawData].map(c=>c.charCodeAt(0)));
 }
 
-function notifyTokenCalled(token, message){
-  if(!token || token !== state.token) return;
-  const key=`gh_called_notified_${token}`;
-  if(localStorage.getItem(key)==='1') return;
-  localStorage.setItem(key,'1');
-  // The service worker owns the push notification itself. Keeping the page
-  // from creating another Notification avoids duplicate alerts.
-  // Voice is played exactly 3 times when the patient page is available.
-  if('speechSynthesis' in window){
-    speechSynthesis.cancel();
-    let spoken=0;
-    const speakOnce=()=>{
-      if(spoken>=3) return;
-      const utterance=new SpeechSynthesisUtterance(message);
-      utterance.lang='hi-IN'; utterance.rate=0.9;
-      utterance.onend=()=>{ spoken++; if(spoken<3) setTimeout(speakOnce,500); };
-      speechSynthesis.speak(utterance);
-    };
-    speakOnce();
+let lastVoiceCallId = localStorage.getItem('gh_last_voice_call_id') || '';
+
+function updateVoiceButton(){
+  const btn=document.getElementById('voiceBtn');
+  const status=document.getElementById('voiceStatus');
+  if(!btn || !status) return;
+  const enabled=localStorage.getItem('gh_voice_enabled')==='1';
+  btn.textContent=enabled?'🔊 Voice Alerts Enabled':'🔊 Enable Voice Alerts';
+  status.textContent=enabled?'Voice alert is ready.':'Tap once to allow the browser to speak when your token is called.';
+}
+
+function enableVoiceAlerts(){
+  if(!('speechSynthesis' in window)){
+    const status=document.getElementById('voiceStatus');
+    if(status) status.textContent='Voice alerts are not supported by this browser.';
+    return;
   }
+  speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance('Voice alerts enabled.');
+  utterance.lang='en-IN';
+  utterance.rate=0.95;
+  utterance.volume=1;
+  utterance.onend=()=>{
+    localStorage.setItem('gh_voice_enabled','1');
+    updateVoiceButton();
+  };
+  utterance.onerror=()=>{
+    localStorage.setItem('gh_voice_enabled','1');
+    updateVoiceButton();
+  };
+  speechSynthesis.speak(utterance);
+}
+
+function speakTokenCalled(message, callId){
+  if(!('speechSynthesis' in window)) return false;
+  if(localStorage.getItem('gh_voice_enabled')!=='1') return false;
+  const dedupeId=callId || `token:${state.token}`;
+  if(dedupeId===lastVoiceCallId) return false;
+  lastVoiceCallId=dedupeId;
+  localStorage.setItem('gh_last_voice_call_id',dedupeId);
+  speechSynthesis.cancel();
+  let spoken=0;
+  const speakOnce=()=>{
+    if(spoken>=3) return;
+    const utterance=new SpeechSynthesisUtterance(message);
+    utterance.lang='hi-IN';
+    utterance.rate=0.88;
+    utterance.pitch=1;
+    utterance.volume=1;
+    utterance.onend=()=>{
+      spoken++;
+      if(spoken<3) setTimeout(speakOnce,700);
+    };
+    utterance.onerror=()=>{
+      spoken++;
+      if(spoken<3) setTimeout(speakOnce,700);
+    };
+    speechSynthesis.speak(utterance);
+  };
+  // Some Android browsers pause speech until resume() is called.
+  try{ speechSynthesis.resume(); }catch(e){}
+  speakOnce();
+  return true;
+}
+
+function notifyTokenCalled(token, message, callId){
+  if(!token || token !== state.token) return;
+  const text=message || `Token ${token}, aapka number aa gaya hai. Aap doctor ke paas jayein.`;
+  const spoken=speakTokenCalled(text, callId);
+  if(spoken) return;
+  // Push notification is handled by the service worker. If voice is not enabled,
+  // the visible notification still arrives and this screen explains how to enable voice.
 }
 
 const state = {
@@ -398,7 +452,7 @@ function updateFromQueue(q){
       myHintEl.textContent='Please doctor ke paas jayein.';
       myCard.classList.add('personal-alert','turn');
       myCard.classList.remove('wait');
-      notifyTokenCalled(state.token,'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
+      notifyTokenCalled(state.token, `Token ${state.token}, aapka number aa gaya hai. Aap doctor ke paas jayein.`, q.callId || '');
       document.getElementById('progressBar').style.width='100%';
     }else if(idx>=0){
       const ahead=idx;
@@ -440,6 +494,7 @@ async function refreshAll(){
   }
 }
 
+updateVoiceButton();
 document.getElementById('profileName').value=state.patientName;
 document.getElementById('patientName').value=state.patientName;
 document.getElementById('department').value=state.department;

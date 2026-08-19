@@ -7,11 +7,11 @@ self.addEventListener('push', event => {
   event.waitUntil((async () => {
     const clientsList = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
     for (const client of clientsList) {
-      client.postMessage({type:'TOKEN_CALLED', token, message:data.voiceText || body});
+      client.postMessage({type:'TOKEN_CALLED', token, message:body, voiceText:data.voiceText || body, callId:data.callId || ''});
     }
     await self.registration.showNotification(title, {
       body,
-      tag: token ? `token-called-${token}` : 'galaxy-token-called',
+      tag: data.callId ? `token-called-${data.callId}` : (token ? `token-called-${token}` : 'galaxy-token-called'),
       icon:'./icon-192.png', badge:'./icon-192.png', requireInteraction:true,
       vibrate:[300,150,300,150,500], data:{token}
     });
