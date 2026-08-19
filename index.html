@@ -49,6 +49,13 @@ button{font:inherit}
 .btn-outline{background:#fff;color:var(--primary);border:1px solid var(--border)}
 .btn:active{transform:scale(.99)}
 .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.token-horizontal{width:100%;display:flex;align-items:center;gap:13px;padding:15px 16px;margin:0 0 12px;border:1px solid var(--border);background:#fff;border-radius:18px;box-shadow:var(--shadow);cursor:pointer;text-align:left;color:var(--text)}
+.token-horizontal:active{transform:scale(.99)}
+.token-horizontal-icon{width:46px;height:46px;border-radius:14px;background:var(--mint);display:grid;place-items:center;font-size:23px;flex:0 0 auto}
+.token-horizontal-text{display:flex;flex-direction:column;flex:1}
+.token-horizontal-text strong{font-size:15px}
+.token-horizontal-text span{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.token-horizontal-arrow{font-size:30px;line-height:1;color:var(--primary);font-weight:700}
 .action{padding:17px 14px;text-align:left;border:1px solid var(--border);background:#fff;border-radius:18px;cursor:pointer}
 .action .icon{font-size:22px;margin-bottom:9px}
 .action strong{display:block;font-size:14px}
@@ -109,8 +116,16 @@ label{font-size:12px;font-weight:800}
     <button class="btn btn-primary" style="margin-top:15px" onclick="showScreen('queue')">View Live Queue</button>
   </div>
 
+  <button class="token-horizontal" onclick="showScreen('token')">
+    <div class="token-horizontal-icon">🎟️</div>
+    <div class="token-horizontal-text">
+      <strong>Get a Token</strong>
+      <span>Join a department queue</span>
+    </div>
+    <div class="token-horizontal-arrow">›</div>
+  </button>
+
   <div class="action-grid">
-    <button class="action" onclick="showScreen('token')"><div class="icon">🎟️</div><strong>Get a Token</strong><span>Join a department queue</span></button>
     <button class="action" onclick="showScreen('mytoken')"><div class="icon">🧾</div><strong>My Token</strong><span>Track your current visit</span></button>
     <button class="action" onclick="showScreen('queue')"><div class="icon">📺</div><strong>Live Queue</strong><span>See real-time status</span></button>
     <button class="action" onclick="showScreen('profile')"><div class="icon">👤</div><strong>My Profile</strong><span>Patient information</span></button>
