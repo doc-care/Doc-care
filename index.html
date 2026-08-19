@@ -67,6 +67,9 @@ button{font:inherit}
 .badge{width:40px;height:40px;border-radius:13px;background:var(--mint);display:grid;place-items:center;color:var(--primary);font-weight:900}
 .small{font-size:12px;color:var(--muted)}
 .big-token{font-size:64px;line-height:1;font-weight:950;color:var(--primary);letter-spacing:-2px;text-align:center;margin:12px 0}
+.personal-alert{background:#e9fbf5;border:1px solid #bfeee0;border-radius:16px;padding:16px;margin-top:10px}
+.personal-alert.turn{background:#e7fff0;border-color:#9fe5bc}
+.personal-alert.wait{background:#fffaf0;border-color:#f0dfb0}
 .center{text-align:center}
 .progress{height:9px;background:#e5efed;border-radius:20px;overflow:hidden;margin:14px 0}
 .progress span{display:block;height:100%;width:0;background:var(--primary);border-radius:20px;transition:width .3s}
@@ -177,12 +180,19 @@ label{font-size:12px;font-weight:800}
 </section>
 
 <section id="queue" class="screen">
+  <div class="card center" id="myQueueStatusCard">
+    <h2 class="section-title">My Queue Status</h2>
+    <div id="queueMyToken" class="big-token">—</div>
+    <div id="queueMyStatus" style="font-weight:900;font-size:18px">Waiting for token</div>
+    <p id="queueMyHint" class="small" style="margin-top:8px">Your personal queue position will appear here.</p>
+  </div>
+
   <div class="card center">
     <h2 class="section-title">Galaxy Hospital — Live Queue</h2>
     <div class="queue-box" style="margin-top:8px"><div class="queue-label">Now Serving</div><div id="queueNow" class="big-token">—</div></div>
     <div class="queue-grid" style="margin-top:12px">
-      <div class="queue-box"><div class="queue-label">Next</div><div id="queueNext" class="queue-number">—</div></div>
-      <div class="queue-box"><div class="queue-label">Waiting</div><div id="waitingCount" class="queue-number">—</div></div>
+      <div class="queue-box"><div class="queue-label">Next Patient</div><div id="queueNext" class="queue-number">—</div></div>
+      <div class="queue-box"><div class="queue-label">Patients Waiting</div><div id="waitingCount" class="queue-number">—</div></div>
     </div>
     <div class="status" style="justify-content:center"><span class="dot"></span><span id="queueStatus">Live connection pending</span></div>
   </div>
@@ -366,16 +376,57 @@ function updateFromQueue(q){
   document.getElementById('queueNext').textContent=next;
   document.getElementById('waitingCount').textContent=q.waitingCount ?? '—';
   document.getElementById('queueDepartment').textContent=q.department||state.department;
+
+  const myCard=document.getElementById('myQueueStatusCard');
+  const myTokenEl=document.getElementById('queueMyToken');
+  const myStatusEl=document.getElementById('queueMyStatus');
+  const myHintEl=document.getElementById('queueMyHint');
+
   if(state.token){
-    const idx=q.waiting.findIndex(x=>x.token===state.token);
+    const idx=Array.isArray(q.waiting) ? q.waiting.findIndex(x=>x.token===state.token) : -1;
     const serving=q.nowServing===state.token;
     const exists=serving || idx>=0;
+
     document.getElementById('myTokenValue').textContent=state.token;
     document.getElementById('myTokenDept').textContent=state.department;
-    document.getElementById('myTokenStatus').textContent=serving?'YOUR TURN — NOW SERVING':(idx>=0?'WAITING':'COMPLETED / NOT IN ACTIVE QUEUE');
-    document.getElementById('myTokenHint').textContent=serving?'Please proceed to the consultation area.':idx>=0?`There are ${idx} patient(s) ahead of you.`:'Check with reception if you need help.';
-    if(serving) notifyTokenCalled(state.token,'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
-    document.getElementById('progressBar').style.width=serving?'100%':idx>=0?Math.max(5,100-(idx*10))+'%':'0%';
+    myTokenEl.textContent=state.token;
+
+    if(serving){
+      document.getElementById('myTokenStatus').textContent='YOUR TURN — NOW SERVING';
+      document.getElementById('myTokenHint').textContent='Aapka number aa gaya hai. Please doctor ke paas jayein.';
+      myStatusEl.textContent='🟢 Aapka number aa gaya hai!';
+      myHintEl.textContent='Please doctor ke paas jayein.';
+      myCard.classList.add('personal-alert','turn');
+      myCard.classList.remove('wait');
+      notifyTokenCalled(state.token,'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
+      document.getElementById('progressBar').style.width='100%';
+    }else if(idx>=0){
+      const ahead=idx;
+      document.getElementById('myTokenStatus').textContent=ahead===0?'NEXT — PLEASE BE READY':`WAITING — ${ahead} patient(s) before you`;
+      document.getElementById('myTokenHint').textContent=ahead===0?'Aap next hain. Please ready rahein.':`Aapse pehle ${ahead} patient(s) hain.`;
+      myStatusEl.textContent=ahead===0?'🟡 Aap next hain':'⏳ Aap queue mein hain';
+      myHintEl.textContent=ahead===0?'Aapka number ab aane wala hai. Please ready rahein.':`Aapse pehle ${ahead} patient(s) hain.`;
+      myCard.classList.add('personal-alert','wait');
+      myCard.classList.remove('turn');
+      document.getElementById('progressBar').style.width=Math.max(5,100-(ahead*10))+'%';
+    }else{
+      document.getElementById('myTokenStatus').textContent='COMPLETED / NOT IN ACTIVE QUEUE';
+      document.getElementById('myTokenHint').textContent='Check with reception if you need help.';
+      myStatusEl.textContent='⚪ Token not in active queue';
+      myHintEl.textContent='Check with reception if you need help.';
+      myCard.classList.remove('personal-alert','turn','wait');
+      document.getElementById('progressBar').style.width='0%';
+    }
+  }else{
+    myTokenEl.textContent='—';
+    myStatusEl.textContent='Waiting for token';
+    myHintEl.textContent='Get a token to see your personal queue position.';
+    myCard.classList.remove('personal-alert','turn','wait');
+    document.getElementById('myTokenValue').textContent='—';
+    document.getElementById('myTokenDept').textContent='No active token';
+    document.getElementById('myTokenStatus').textContent='Waiting for token';
+    document.getElementById('myTokenHint').textContent='Get a token to see your live personal status.';
+    document.getElementById('progressBar').style.width='0%';
   }
 }
 
