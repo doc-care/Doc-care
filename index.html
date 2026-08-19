@@ -142,11 +142,11 @@ label{font-size:12px;font-weight:800}
     <input id="patientName" class="input" placeholder="Enter patient name" autocomplete="name">
     <label style="display:block;margin-top:15px">Mobile number</label>
     <input id="patientMobile" class="input" placeholder="10-digit mobile number" inputmode="numeric" maxlength="10" autocomplete="tel">
-    <p class="small" style="margin-top:8px">One active token is allowed per mobile number and device.</p>
+    <p class="small" style="margin-top:8px">Your phone gets a private device ID automatically. You do not need to enter or share any ID.</p>
     <button class="btn btn-primary" style="margin-top:16px" onclick="requestToken()">Request Token</button>
     <p id="tokenMessage" class="small center" style="margin-top:12px"></p>
   </div>
-  <div class="notice">Step 1 stores the patient-side interface. Actual token issuance must be connected to the hospital backend in the next integration step so tokens are never fabricated on the phone.</div>
+  <div class="notice">After your token is issued, this phone is automatically registered for your token's alerts. When the doctor calls your token, only this phone receives the alert. Please allow notifications and keep this page open if you want the 3-time voice announcement.</div>
 </section>
 
 <section id="mytoken" class="screen">
@@ -220,16 +220,13 @@ async function registerPushServiceWorker(){
 
 async function enablePushForToken(){
   try{
-    if(!pushRegistration || !('PushManager' in window) || !('Notification' in window)) return;
-    const keyResponse = await fetch(`${API_BASE}/api/push/public-key`);
+    if(!state.token || !state.deviceId) return false;
+    if(!pushRegistration || !('PushManager' in window) || !('Notification' in window)) return false;
+    const keyResponse = await fetch(`${API_BASE}/api/push/public-key`, {cache:'no-store'});
     const keyData = await keyResponse.json();
-    if(!keyData.enabled || !keyData.publicKey) return;
-
-    const permission = Notification.permission === 'granted'
-      ? 'granted'
-      : await Notification.requestPermission();
-    if(permission !== 'granted') return;
-
+    if(!keyData.enabled || !keyData.publicKey) return false;
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if(permission !== 'granted') return false;
     let subscription = await pushRegistration.pushManager.getSubscription();
     if(!subscription){
       subscription = await pushRegistration.pushManager.subscribe({
@@ -237,21 +234,16 @@ async function enablePushForToken(){
         applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
       });
     }
-
-    await fetch(`${API_BASE}/api/push/subscribe`,{
+    const response = await fetch(`${API_BASE}/api/push/subscribe`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        token:state.token,
-        deviceId:state.deviceId,
-        subscription:subscription.toJSON()
-      })
+      body:JSON.stringify({token:state.token,deviceId:state.deviceId,subscription:subscription.toJSON()})
     });
-  }catch(e){
-    console.warn('Push setup failed:', e);
-  }
+    const result = await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(result.error || 'Could not register this phone for alerts');
+    return true;
+  }catch(e){ console.warn('Push setup failed:', e); return false; }
 }
-
 function urlBase64ToUint8Array(base64String){
   const padding='='.repeat((4-base64String.length%4)%4);
   const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
@@ -264,32 +256,22 @@ function notifyTokenCalled(token, message){
   const key=`gh_called_notified_${token}`;
   if(localStorage.getItem(key)==='1') return;
   localStorage.setItem(key,'1');
-
-  if('Notification' in window && Notification.permission==='granted'){
-    try{
-      new Notification('Galaxy Hospital', {
-        body: message,
-        tag:`token-called-${token}`,
-        requireInteraction:true
-      });
-    }catch(e){}
-  }
-
-  // Browser pages can speak the alert three times. A service worker itself
-  // cannot use speechSynthesis while the page is fully closed.
+  // The service worker owns the push notification itself. Keeping the page
+  // from creating another Notification avoids duplicate alerts.
+  // Voice is played exactly 3 times when the patient page is available.
   if('speechSynthesis' in window){
     speechSynthesis.cancel();
-    for(let i=0;i<3;i++){
-      setTimeout(()=>{
-        const utterance=new SpeechSynthesisUtterance(message);
-        utterance.lang='hi-IN';
-        utterance.rate=0.9;
-        speechSynthesis.speak(utterance);
-      }, i*2200);
-    }
+    let spoken=0;
+    const speakOnce=()=>{
+      if(spoken>=3) return;
+      const utterance=new SpeechSynthesisUtterance(message);
+      utterance.lang='hi-IN'; utterance.rate=0.9;
+      utterance.onend=()=>{ spoken++; if(spoken<3) setTimeout(speakOnce,500); };
+      speechSynthesis.speak(utterance);
+    };
+    speakOnce();
   }
 }
-
 
 const state = {
   patientName: localStorage.getItem('gh_patient_name') || '',
