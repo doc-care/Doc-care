@@ -199,6 +199,97 @@ label{font-size:12px;font-weight:800}
 
 <script>
 const API_BASE = 'https://doc-care-backend.onrender.com';
+let pushRegistration = null;
+
+async function registerPushServiceWorker(){
+  if(!('serviceWorker' in navigator)) return null;
+  try{
+    pushRegistration = await navigator.serviceWorker.register('./sw.js');
+    navigator.serviceWorker.addEventListener('message', event=>{
+      const data = event.data || {};
+      if(data.type === 'TOKEN_CALLED' && data.token === state.token){
+        notifyTokenCalled(data.token, data.message || 'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
+      }
+    });
+    return pushRegistration;
+  }catch(e){
+    console.warn('Push service worker unavailable:', e);
+    return null;
+  }
+}
+
+async function enablePushForToken(){
+  try{
+    if(!pushRegistration || !('PushManager' in window) || !('Notification' in window)) return;
+    const keyResponse = await fetch(`${API_BASE}/api/push/public-key`);
+    const keyData = await keyResponse.json();
+    if(!keyData.enabled || !keyData.publicKey) return;
+
+    const permission = Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission();
+    if(permission !== 'granted') return;
+
+    let subscription = await pushRegistration.pushManager.getSubscription();
+    if(!subscription){
+      subscription = await pushRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+      });
+    }
+
+    await fetch(`${API_BASE}/api/push/subscribe`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        token:state.token,
+        deviceId:state.deviceId,
+        subscription:subscription.toJSON()
+      })
+    });
+  }catch(e){
+    console.warn('Push setup failed:', e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const rawData=atob(base64);
+  return Uint8Array.from([...rawData].map(c=>c.charCodeAt(0)));
+}
+
+function notifyTokenCalled(token, message){
+  if(!token || token !== state.token) return;
+  const key=`gh_called_notified_${token}`;
+  if(localStorage.getItem(key)==='1') return;
+  localStorage.setItem(key,'1');
+
+  if('Notification' in window && Notification.permission==='granted'){
+    try{
+      new Notification('Galaxy Hospital', {
+        body: message,
+        tag:`token-called-${token}`,
+        requireInteraction:true
+      });
+    }catch(e){}
+  }
+
+  // Browser pages can speak the alert three times. A service worker itself
+  // cannot use speechSynthesis while the page is fully closed.
+  if('speechSynthesis' in window){
+    speechSynthesis.cancel();
+    for(let i=0;i<3;i++){
+      setTimeout(()=>{
+        const utterance=new SpeechSynthesisUtterance(message);
+        utterance.lang='hi-IN';
+        utterance.rate=0.9;
+        speechSynthesis.speak(utterance);
+      }, i*2200);
+    }
+  }
+}
+
 
 const state = {
   patientName: localStorage.getItem('gh_patient_name') || '',
@@ -258,6 +349,7 @@ async function requestToken(){
     document.getElementById('greeting').textContent=`Hello, ${name}`;
     msg.textContent=`Token issued successfully: ${state.token}`;
     updateFromQueue(data.queue);
+    await enablePushForToken();
     showScreen('mytoken');
   }catch(e){ msg.textContent=e.message; }
 }
@@ -285,6 +377,7 @@ function updateFromQueue(q){
     document.getElementById('myTokenDept').textContent=state.department;
     document.getElementById('myTokenStatus').textContent=serving?'YOUR TURN — NOW SERVING':(idx>=0?'WAITING':'COMPLETED / NOT IN ACTIVE QUEUE');
     document.getElementById('myTokenHint').textContent=serving?'Please proceed to the consultation area.':idx>=0?`There are ${idx} patient(s) ahead of you.`:'Check with reception if you need help.';
+    if(serving) notifyTokenCalled(state.token,'Aapka number aa gaya hai. Aap doctor ke paas jayein.');
     document.getElementById('progressBar').style.width=serving?'100%':idx>=0?Math.max(5,100-(idx*10))+'%':'0%';
   }
 }
@@ -304,6 +397,7 @@ document.getElementById('patientName').value=state.patientName;
 document.getElementById('department').value=state.department;
 if(state.patientName) document.getElementById('greeting').textContent=`Hello, ${state.patientName}`;
 
+registerPushServiceWorker().then(()=>{ if(state.token) enablePushForToken(); });
 refreshAll();
 setInterval(refreshAll, 3000);
 </script>
