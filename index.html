@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b6e69">
+<title>Galaxy Hospital — Patient App</title>
+<style>
+:root{
+  --primary:#0b6e69;
+  --primary-dark:#07514e;
+  --mint:#eaf8f6;
+  --bg:#f5f8f8;
+  --card:#ffffff;
+  --text:#173331;
+  --muted:#6f8381;
+  --border:#dce9e7;
+  --danger:#c84d4d;
+  --shadow:0 10px 30px rgba(10,67,64,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9eeee;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
+button{font:inherit}
+.app{width:min(100%,480px);min-height:100vh;margin:auto;background:var(--bg);position:relative;padding-bottom:88px}
+.header{background:linear-gradient(135deg,var(--primary),#15958e);color:#fff;padding:20px 20px 22px;border-radius:0 0 28px 28px;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:46px;height:46px;border-radius:15px;background:#fff;display:grid;place-items:center;color:var(--primary);font-weight:900;font-size:18px;box-shadow:0 5px 18px rgba(0,0,0,.12)}
+.brand h1{font-size:19px;margin:0;font-weight:800}
+.brand p{font-size:12px;margin:3px 0 0;opacity:.82}
+.top-row{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+.greeting{font-size:25px;font-weight:800;margin:0}
+.sub{margin:5px 0 0;font-size:13px;opacity:.82}
+.avatar{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:800}
+.content{padding:18px}
+.screen{display:none}
+.screen.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;box-shadow:var(--shadow);margin-bottom:15px}
+.section-title{font-size:17px;font-weight:800;margin:0 0 13px}
+.queue-card{background:linear-gradient(145deg,#ffffff,#f1fbfa)}
+.queue-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.queue-box{background:var(--mint);border-radius:16px;padding:15px}
+.queue-label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.queue-number{font-size:34px;font-weight:900;color:var(--primary);margin-top:5px}
+.status{display:flex;align-items:center;gap:8px;margin-top:13px;font-size:13px;font-weight:700}
+.dot{width:9px;height:9px;border-radius:50%;background:#28a66f;box-shadow:0 0 0 5px #e4f6ee}
+.btn{border:0;border-radius:15px;padding:14px 16px;font-weight:800;cursor:pointer;width:100%}
+.btn-primary{background:var(--primary);color:white}
+.btn-light{background:var(--mint);color:var(--primary)}
+.btn-outline{background:#fff;color:var(--primary);border:1px solid var(--border)}
+.btn:active{transform:scale(.99)}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.action{padding:17px 14px;text-align:left;border:1px solid var(--border);background:#fff;border-radius:18px;cursor:pointer}
+.action .icon{font-size:22px;margin-bottom:9px}
+.action strong{display:block;font-size:14px}
+.action span{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.list{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row-left{display:flex;align-items:center;gap:11px}
+.badge{width:40px;height:40px;border-radius:13px;background:var(--mint);display:grid;place-items:center;color:var(--primary);font-weight:900}
+.small{font-size:12px;color:var(--muted)}
+.big-token{font-size:64px;line-height:1;font-weight:950;color:var(--primary);letter-spacing:-2px;text-align:center;margin:12px 0}
+.center{text-align:center}
+.progress{height:9px;background:#e5efed;border-radius:20px;overflow:hidden;margin:14px 0}
+.progress span{display:block;height:100%;width:0;background:var(--primary);border-radius:20px;transition:width .3s}
+.input{width:100%;padding:14px;border:1px solid var(--border);border-radius:13px;outline:none;margin-top:7px;background:#fff}
+label{font-size:12px;font-weight:800}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,480px);height:78px;background:#fff;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);z-index:10}
+.nav button{border:0;background:none;color:#78908e;font-size:10px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+.nav button.active{color:var(--primary)}
+.nav-icon{font-size:20px}
+.notice{font-size:12px;line-height:1.5;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:15px;padding:13px}
+.back{border:0;background:none;color:#fff;font-size:22px;padding:0;margin-right:5px;cursor:pointer}
+.header-line{display:flex;align-items:center}
+.hidden{display:none!important}
+@media(min-width:700px){body{padding:20px 0}.app{border-radius:28px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.12)}.nav{bottom:20px;border-radius:0 0 28px 28px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="header">
+  <div class="header-line">
+    <button id="backBtn" class="back hidden" aria-label="Back">‹</button>
+    <div class="brand">
+      <div class="logo">GH</div>
+      <div><h1>Galaxy Hospital</h1><p>Patient Care & Live Queue</p></div>
+    </div>
+  </div>
+  <div class="top-row">
+    <div>
+      <p class="greeting" id="greeting">Hello, Patient</p>
+      <p class="sub">Manage your hospital visit from your phone.</p>
+    </div>
+    <div class="avatar">P</div>
+  </div>
+</header>
+
+<main class="content">
+
+<section id="home" class="screen active">
+  <div class="card queue-card">
+    <h2 class="section-title">Live Queue</h2>
+    <div class="queue-grid">
+      <div class="queue-box"><div class="queue-label">Now Serving</div><div id="nowServing" class="queue-number">—</div></div>
+      <div class="queue-box"><div class="queue-label">Next Patient</div><div id="nextPatient" class="queue-number">—</div></div>
+    </div>
+    <div class="status"><span class="dot"></span><span id="connectionStatus">Waiting for live hospital connection</span></div>
+    <button class="btn btn-primary" style="margin-top:15px" onclick="showScreen('queue')">View Live Queue</button>
+  </div>
+
+  <div class="action-grid">
+    <button class="action" onclick="showScreen('token')"><div class="icon">🎟️</div><strong>Get a Token</strong><span>Join a department queue</span></button>
+    <button class="action" onclick="showScreen('mytoken')"><div class="icon">🧾</div><strong>My Token</strong><span>Track your current visit</span></button>
+    <button class="action" onclick="showScreen('queue')"><div class="icon">📺</div><strong>Live Queue</strong><span>See real-time status</span></button>
+    <button class="action" onclick="showScreen('profile')"><div class="icon">👤</div><strong>My Profile</strong><span>Patient information</span></button>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Departments</h2>
+    <div class="list">
+      <div class="row"><div class="row-left"><div class="badge">OP</div><div><strong>General OPD</strong><div class="small">Outpatient consultation</div></div></div><span class="small">Live</span></div>
+      <div class="row"><div class="row-left"><div class="badge">CD</div><div><strong>Cardiology</strong><div class="small">Heart care</div></div></div><span class="small">Live</span></div>
+      <div class="row"><div class="row-left"><div class="badge">PD</div><div><strong>Pediatrics</strong><div class="small">Child care</div></div></div><span class="small">Live</span></div>
+    </div>
+  </div>
+
+  <div class="notice">Your queue information will update automatically once Galaxy Hospital's live queue service is connected.</div>
+</section>
+
+<section id="token" class="screen">
+  <div class="card">
+    <h2 class="section-title">Get a Token</h2>
+    <p class="small">Select the department you want to visit.</p>
+    <label>Department</label>
+    <select id="department" class="input">
+      <option>General OPD</option>
+      <option>Cardiology</option>
+      <option>Pediatrics</option>
+    </select>
+    <label style="display:block;margin-top:15px">Patient name</label>
+    <input id="patientName" class="input" placeholder="Enter patient name" autocomplete="name">
+    <button class="btn btn-primary" style="margin-top:16px" onclick="requestToken()">Request Token</button>
+    <p id="tokenMessage" class="small center" style="margin-top:12px"></p>
+  </div>
+  <div class="notice">Step 1 stores the patient-side interface. Actual token issuance must be connected to the hospital backend in the next integration step so tokens are never fabricated on the phone.</div>
+</section>
+
+<section id="mytoken" class="screen">
+  <div class="card center">
+    <h2 class="section-title">My Token</h2>
+    <div id="myTokenValue" class="big-token">—</div>
+    <div id="myTokenDept" class="small">No active token</div>
+    <div class="progress"><span id="progressBar"></span></div>
+    <div id="myTokenStatus" style="font-weight:800">Waiting for token</div>
+    <p class="small" id="myTokenHint" style="margin-top:8px">Your live status will appear here.</p>
+  </div>
+  <button class="btn btn-light" onclick="showScreen('queue')">Open Live Queue</button>
+</section>
+
+<section id="queue" class="screen">
+  <div class="card center">
+    <h2 class="section-title">Galaxy Hospital — Live Queue</h2>
+    <div class="queue-box" style="margin-top:8px"><div class="queue-label">Now Serving</div><div id="queueNow" class="big-token">—</div></div>
+    <div class="queue-grid" style="margin-top:12px">
+      <div class="queue-box"><div class="queue-label">Next</div><div id="queueNext" class="queue-number">—</div></div>
+      <div class="queue-box"><div class="queue-label">Waiting</div><div id="waitingCount" class="queue-number">—</div></div>
+    </div>
+    <div class="status" style="justify-content:center"><span class="dot"></span><span id="queueStatus">Live connection pending</span></div>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Queue Information</h2>
+    <div class="row"><div><strong>Department</strong><div class="small">Selected department</div></div><strong id="queueDepartment">—</strong></div>
+    <div class="row"><div><strong>Updates</strong><div class="small">Automatic when backend is connected</div></div><strong>Live</strong></div>
+  </div>
+</section>
+
+<section id="profile" class="screen">
+  <div class="card">
+    <h2 class="section-title">My Profile</h2>
+    <label>Patient name</label>
+    <input id="profileName" class="input" placeholder="Patient name">
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveProfile()">Save Profile</button>
+    <p id="profileMessage" class="small center"></p>
+  </div>
+</section>
+</main>
+
+<nav class="nav">
+  <button data-screen="home" class="active" onclick="showScreen('home')"><span class="nav-icon">⌂</span>Home</button>
+  <button data-screen="token" onclick="showScreen('token')"><span class="nav-icon">🎟</span>Token</button>
+  <button data-screen="queue" onclick="showScreen('queue')"><span class="nav-icon">📺</span>Queue</button>
+  <button data-screen="profile" onclick="showScreen('profile')"><span class="nav-icon">●</span>Profile</button>
+</nav>
+</div>
+
+<script>
+const state = {
+  patientName: localStorage.getItem('gh_patient_name') || '',
+  token: localStorage.getItem('gh_token') || '',
+  department: localStorage.getItem('gh_department') || 'General OPD'
+};
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.screen===id));
+  document.getElementById('backBtn').classList.toggle('hidden', id==='home');
+  window.scrollTo({top:0,behavior:'smooth'});
+  refreshAll();
+}
+document.getElementById('backBtn').onclick=()=>showScreen('home');
+
+function setConnection(ok, text){
+  document.getElementById('connectionStatus').textContent=text;
+  document.getElementById('queueStatus').textContent=text;
+}
+
+function saveProfile(){
+  const name=document.getElementById('profileName').value.trim();
+  state.patientName=name;
+  localStorage.setItem('gh_patient_name',name);
+  document.getElementById('greeting').textContent=name ? `Hello, ${name}` : 'Hello, Patient';
+  document.getElementById('profileMessage').textContent='Profile saved on this device.';
+}
+
+async function requestToken(){
+  const name=document.getElementById('patientName').value.trim();
+  const dept=document.getElementById('department').value;
+  const msg=document.getElementById('tokenMessage');
+  if(!name){ msg.textContent='Please enter the patient name.'; return; }
+  msg.textContent='Requesting a real hospital token...';
+  try{
+    const r=await fetch('/api/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,department:dept})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Token request failed');
+    state.patientName=name; state.department=dept; state.token=data.patient.token;
+    localStorage.setItem('gh_patient_name',name);
+    localStorage.setItem('gh_department',dept);
+    localStorage.setItem('gh_token',state.token);
+    document.getElementById('greeting').textContent=`Hello, ${name}`;
+    msg.textContent=`Token issued successfully: ${state.token}`;
+    updateFromQueue(data.queue);
+    showScreen('mytoken');
+  }catch(e){ msg.textContent=e.message; }
+}
+
+async function getQueue(){
+  const r=await fetch('/api/queue?department='+encodeURIComponent(state.department));
+  const data=await r.json();
+  if(!r.ok) throw new Error(data.error||'Queue unavailable');
+  return data;
+}
+
+function updateFromQueue(q){
+  const now=q.nowServing||'—', next=q.nextPatient||'—';
+  document.getElementById('nowServing').textContent=now;
+  document.getElementById('nextPatient').textContent=next;
+  document.getElementById('queueNow').textContent=now;
+  document.getElementById('queueNext').textContent=next;
+  document.getElementById('waitingCount').textContent=q.waitingCount ?? '—';
+  document.getElementById('queueDepartment').textContent=q.department||state.department;
+  if(state.token){
+    const idx=q.waiting.findIndex(x=>x.token===state.token);
+    const serving=q.nowServing===state.token;
+    const exists=serving || idx>=0;
+    document.getElementById('myTokenValue').textContent=state.token;
+    document.getElementById('myTokenDept').textContent=state.department;
+    document.getElementById('myTokenStatus').textContent=serving?'YOUR TURN — NOW SERVING':(idx>=0?'WAITING':'COMPLETED / NOT IN ACTIVE QUEUE');
+    document.getElementById('myTokenHint').textContent=serving?'Please proceed to the consultation area.':idx>=0?`There are ${idx} patient(s) ahead of you.`:'Check with reception if you need help.';
+    document.getElementById('progressBar').style.width=serving?'100%':idx>=0?Math.max(5,100-(idx*10))+'%':'0%';
+  }
+}
+
+async function refreshAll(){
+  try{
+    const q=await getQueue();
+    updateFromQueue(q);
+    setConnection(true,'Connected to Galaxy Hospital live queue');
+  }catch(e){
+    setConnection(false,'Hospital queue connection unavailable');
+  }
+}
+
+document.getElementById('profileName').value=state.patientName;
+document.getElementById('patientName').value=state.patientName;
+document.getElementById('department').value=state.department;
+if(state.patientName) document.getElementById('greeting').textContent=`Hello, ${state.patientName}`;
+
+refreshAll();
+setInterval(refreshAll, 3000);
+</script>
+</body>
+</html>
